@@ -1,5 +1,6 @@
 import cv2
 import matplotlib.pyplot as plt
+from matplotlib.widgets import Slider
 
 ksize = 5
 thrd1 = 100
@@ -60,6 +61,25 @@ def on_key(event):
     elif event.key == "q":
         plt.close(fig)
 
+
+def update_canny(val):
+    global thrd1, thrd2
+    thrd1 = slider_thrd1.val
+    thrd2 = slider_thrd2.val
+    images[4] = ("Edges", cv2.Canny(image_gray, thrd1, thrd2), "gray")
+    images[5] = ("Edges blur", cv2.Canny(image_blur, thrd1, thrd2), "gray")
+    images[6] = ("Edges gauss", cv2.Canny(image_gauss, thrd1, thrd2), "gray")
+    if current >= 4:
+        update_display()
+
+
+plt.subplots_adjust(bottom=0.25)
+ax_thrd1 = plt.axes([0.25, 0.1, 0.65, 0.03])
+ax_thrd2 = plt.axes([0.25, 0.15, 0.65, 0.03])
+slider_thrd1 = Slider(ax_thrd1, "Threshold 1", 0, 500, valinit=thrd1)
+slider_thrd2 = Slider(ax_thrd2, "Threshold 2", 0, 500, valinit=thrd2)
+slider_thrd1.on_changed(update_canny)
+slider_thrd2.on_changed(update_canny)
 
 fig.canvas.mpl_connect("key_press_event", on_key)
 manager = plt.get_current_fig_manager()
