@@ -37,8 +37,21 @@ for i in circles[0, :]:
     # draw the center of the circle
     cv2.circle(image_rgb, (i[0], i[1]), 2, (0, 0, 255), 3)
 
+full_circle_mask = np.zeros_like(image_gray)
+for i in circles[0, :]:
+    cv2.circle(full_circle_mask, (i[0], i[1]), i[2], 255, -1)
+masked_edges = cv2.bitwise_and(edges, full_circle_mask)
+lines = cv2.HoughLinesP(
+    masked_edges, 1, np.pi / 180, threshold=50, minLineLength=30, maxLineGap=10
+)
+image_with_lines = image_rgb.copy()
+for line in lines:
+    x1, y1, x2, y2 = line[0]
+    cv2.line(image_with_lines, (x1, y1), (x2, y2), (255, 0, 0), 2)
+
 images = [
-    ("RGB", image_rgb, None),
+    ("Gauge circle", image_rgb, None),
+    ("Lines", image_with_lines, None),
     ("Gray", image_gray, "gray"),
     # ("Blur", image_blur, "gray"),
     # ("Gauss", image_gauss, "gray"),
@@ -105,10 +118,10 @@ def redraw_circles():
         cv2.circle(img_rgb_copy, (i[0], i[1]), i[2], (0, 255, 0), 2)
         # draw the center of the circle
         cv2.circle(img_rgb_copy, (i[0], i[1]), 2, (0, 0, 255), 3)
-    images[0] = ("RGB", img_rgb_copy, None)
+    images[0] = ("Gauge circle", img_rgb_copy, None)
 
 
-def update_canny(val):
+def update_canny():
     global thrd1, thrd2
     thrd1 = slider_thrd1.val
     thrd2 = slider_thrd2.val
@@ -139,13 +152,17 @@ def update_canny(val):
         update_display()
 
 
-def update_hough(val):
+def update_hough():
     global min_radius, max_radius
     min_radius = int(slider_min_radius.val)
     max_radius = int(slider_max_radius.val)
     redraw_circles()
     if current == 0:
         update_display()
+
+
+def update_lines():
+    pass
 
 
 plt.subplots_adjust(bottom=0.25)
