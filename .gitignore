@@ -3,6 +3,7 @@
 data/
 results/
 old/
+config.json
 __pycache__/
 *.pyc
 *.pyo

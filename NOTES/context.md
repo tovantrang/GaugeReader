@@ -48,6 +48,7 @@ Current note: the current view index is stored in `App.current`, not `State`. Th
   - `circles`: raw `HoughCircles` result, possibly `None`.
   - `masked_edges`: Canny edges masked by the selected circle.
   - `lines`: raw `HoughLinesP` result, possibly `None`.
+  - `needle_analysis`: prototype angle result from circle center and two selected needle edge lines.
 - `debug_views` should store display-ready tuples: `(title, image, cmap)`.
 - Debug views may reference arrays in `results` for non-mutating views.
 - Overlay views should copy the source image before drawing.
@@ -75,6 +76,8 @@ Current note: the current view index is stored in `App.current`, not `State`. Th
 - Add preprocessing experiments: blur, thresholding, masking, ROI crop, dial center/radius estimation.
 - Detect the needle line robustly and estimate its angle.
 - Map needle angle to gauge value using calibration points.
+- Improve needle line selection beyond the current "two longest segments" prototype.
+- Handle tilted/perspective images with rectification or another geometric correction.
 - Separate "detected geometry" from "debug rendering" more clearly once angle estimation starts.
 - Add small tests for pure pipeline functions and state update behavior.
 - Add CLI options for image path and config path.
@@ -94,5 +97,6 @@ Current note: the current view index is stored in `App.current`, not `State`. Th
 - `canny_thrd2`, `hough_circle_param1`, and `hough_line_threshold` are separate controls even if their default values sometimes look similar.
 - `HoughLinesP` should receive the Canny edge image, not the grayscale image.
 - Line detection should use edges masked by the selected circle when a circle is available.
+- Current prototype angle strategy: intersect the two selected needle contour lines, then measure the angle from the detected circle center to that intersection.
 - Fixed sliders are acceptable for now, but they are generated from `PARAM_SPECS` so the UI can evolve toward contextual sliders later.
 - JSON is the first config format. Keep it simple until the parameter set stabilizes.

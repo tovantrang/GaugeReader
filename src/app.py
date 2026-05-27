@@ -105,10 +105,27 @@ class App:
             self.state.add_result("lines", lines)
             self.state.add_view("overlay_lines", "Hough Lines", image_with_lines)
 
+    def set_needle_analysis(self):
+        needle_analysis = self.pipeline.compute_needle_analysis(
+            self.state.results["circles"],
+            self.state.results["lines"],
+        )
+        image_with_needle = self.pipeline.draw_needle_analysis(
+            self.state.results["image_rgb"],
+            needle_analysis,
+        )
+        if "needle_analysis" in self.state.results:
+            self.state.update_result("needle_analysis", needle_analysis)
+            self.state.update_view("overlay_needle", image_with_needle)
+        else:
+            self.state.add_result("needle_analysis", needle_analysis)
+            self.state.add_view("overlay_needle", "Needle Angle", image_with_needle)
+
     def recompute_all(self):
         self.set_canny()
         self.set_circles()
         self.set_lines()
+        self.set_needle_analysis()
 
     def set_param(self, key: str, value):
         self.state.set_param(key, value)
