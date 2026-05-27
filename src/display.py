@@ -1,10 +1,13 @@
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 
+from .params import PARAM_SPECS
+
 
 class Display:
     def __init__(self, app):
         self.app = app
+        self.sliders = {}
         self.ui_init()
         self.display()
 
@@ -27,6 +30,21 @@ class Display:
             self.update_display()
         elif event.key == "q":
             plt.close(self.fig)
+        elif event.key == "ctrl+e":
+            try:
+                config_path = self.app.save_config()
+                print(f"Saved config to {config_path}")
+            except OSError as exc:
+                print(f"Could not save config: {exc}")
+        elif event.key == "ctrl+l":
+            try:
+                config_path = self.app.load_config()
+            except (OSError, ValueError) as exc:
+                print(f"Could not load config: {exc}")
+            else:
+                self.sync_sliders()
+                self.update_display()
+                print(f"Loaded config from {config_path}")
 
     def quit(self):
         plt.close(self.fig)
@@ -43,57 +61,34 @@ class Display:
         self.ax.set_title(image[0])
         self.ax.axis("off")
 
-        plt.subplots_adjust(bottom=0.25)
-        ax_thrd1 = plt.axes((0.25, 0.15, 0.65, 0.03))
-        ax_thrd2 = plt.axes((0.25, 0.1, 0.65, 0.03))
-        ax_min_radius = plt.axes((0.25, 0.05, 0.65, 0.03))
-        ax_max_radius = plt.axes((0.25, 0.0, 0.65, 0.03))
-        self.slider_thrd1 = Slider(
-            ax_thrd1,
-            "Threshold 1",
-            0,
-            500,
-            valinit=self.app.state.config["canny_thrd1"],
-        )
-        self.slider_thrd2 = Slider(
-            ax_thrd2,
-            "Threshold 2",
-            0,
-            500,
-            valinit=self.app.state.config["canny_thrd2"],
-        )
-        self.slider_min_radius = Slider(
-            ax_min_radius,
-            "Min Radius",
-            0,
-            100,
-            valinit=self.app.state.config["hough_min_radius"],
-            valfmt="%i",
-            valstep=1,
-        )
-        self.slider_max_radius = Slider(
-            ax_max_radius,
-            "Max Radius",
-            0,
-            100,
-            valinit=self.app.state.config["hough_max_radius"],
-            valfmt="%i",
-            valstep=1,
-        )
+        bottom = 0.08 + len(PARAM_SPECS) * 0.05
+        plt.subplots_adjust(bottom=bottom)
+        for index, spec in enumerate(PARAM_SPECS):
+            y_pos = bottom - 0.06 - index * 0.05
+            slider_ax = plt.axes((0.25, y_pos, 0.65, 0.03))
+            self.sliders[spec.key] = Slider(
+                slider_ax,
+                spec.label,
+                spec.min_value,
+                spec.max_value,
+                valinit=self.app.state.config[spec.key],
+                valfmt=spec.valfmt,
+                valstep=spec.step,
+            )
 
     def set_param(self, param_name, value):
         self.app.set_param(param_name, value)
         self.update_display()
 
+    def sync_sliders(self):
+        for param_name, slider in self.sliders.items():
+            slider.eventson = False
+            slider.set_val(self.app.state.config[param_name])
+            slider.eventson = True
+
     def display(self):
-        self.slider_thrd1.on_changed(lambda val: self.set_param("canny_thrd1", val))
-        self.slider_thrd2.on_changed(lambda val: self.set_param("canny_thrd2", val))
-        self.slider_min_radius.on_changed(
-            lambda val: self.set_param("hough_min_radius", val)
-        )
-        self.slider_max_radius.on_changed(
-            lambda val: self.set_param("hough_max_radius", val)
-        )
+        for param_name, slider in self.sliders.items():
+            slider.on_changed(lambda val, name=param_name: self.set_param(name, val))
 
         self.fig.canvas.mpl_connect("key_press_event", self.on_key)
         manager = plt.get_current_fig_manager()

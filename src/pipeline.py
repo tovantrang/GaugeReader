@@ -40,6 +40,16 @@ class Pipeline:
                 cv2.circle(img_rgb_copy, (i[0], i[1]), 2, (0, 0, 255), 3)
         return img_rgb_copy
 
+    def compute_circle_masked_image(self, image, circles):
+        if circles is None:
+            return image
+
+        circles = np.uint16(np.around(circles))
+        x, y, radius = circles[0, 0]
+        mask = np.zeros_like(image)
+        cv2.circle(mask, (x, y), radius, 255, -1)
+        return cv2.bitwise_and(image, mask)
+
     def compute_lines(self, image, thrd, min_line_length, max_line_gap):
         return cv2.HoughLinesP(
             image,

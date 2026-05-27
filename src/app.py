@@ -1,12 +1,23 @@
+import json
+from pathlib import Path
+
 from .pipeline import Pipeline
 from .state import State
 
 
 class App:
-    def __init__(self, config):
+    def __init__(self, config, config_path="config.json"):
         self.state = State(config)
         self.pipeline = Pipeline()
+        self.config_path = Path(config_path)
         self.current = 0
+        self.reload_image()
+
+    def reload_image(self):
+        self.current = 0
+        self.state.results.clear()
+        self.state.debug_views.clear()
+        self.state.display_order.clear()
         self.set_rgb()
         self.set_gray()
         self.recompute_all()
@@ -67,8 +78,12 @@ class App:
             self.state.add_view("overlay_circles", "Hough Circles", image_with_circles)
 
     def set_lines(self):
-        lines = self.pipeline.compute_lines(
+        masked_edges = self.pipeline.compute_circle_masked_image(
             self.state.results["edges"],
+            self.state.results["circles"],
+        )
+        lines = self.pipeline.compute_lines(
+            masked_edges,
             self.state.config["hough_line_threshold"],
             50,
             10,
@@ -76,6 +91,13 @@ class App:
         image_with_lines = self.pipeline.draw_lines(
             self.state.results["image_rgb"], lines
         )
+        if "masked_edges" in self.state.results:
+            self.state.update_result("masked_edges", masked_edges)
+            self.state.update_view("masked_edges", masked_edges)
+        else:
+            self.state.add_result("masked_edges", masked_edges)
+            self.state.add_view("masked_edges", "Masked Edges", masked_edges, "gray")
+
         if "lines" in self.state.results:
             self.state.update_result("lines", lines)
             self.state.update_view("overlay_lines", image_with_lines)
@@ -91,3 +113,28 @@ class App:
     def set_param(self, key: str, value):
         self.state.set_param(key, value)
         self.recompute_all()
+
+    def save_config(self, path=None):
+        config_path = Path(path) if path is not None else self.config_path
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        with config_path.open("w", encoding="utf-8") as config_file:
+            json.dump(self.state.config, config_file, indent=2)
+            config_file.write("\n")
+        return config_path
+
+    def load_config(self, path=None):
+        config_path = Path(path) if path is not None else self.config_path
+        with config_path.open(encoding="utf-8") as config_file:
+            loaded_config = json.load(config_file)
+        if not isinstance(loaded_config, dict):
+            raise ValueError(f"Config must be a JSON object: {config_path}")
+
+        old_image_path = self.state.config["image_path"]
+        for key, value in loaded_config.items():
+            self.state.set_param(key, value)
+
+        if self.state.config["image_path"] != old_image_path:
+            self.reload_image()
+        else:
+            self.recompute_all()
+        return config_path

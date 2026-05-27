@@ -1,5 +1,7 @@
 from typing import Any
 
+from .params import PARAM_SPECS_BY_KEY
+
 
 DebugView = tuple[str, Any, str | None]
 
@@ -12,6 +14,8 @@ class State:
         self.display_order: list[str] = list(self.debug_views.keys())
 
     def set_param(self, key: str, value: Any) -> None:
+        if key in PARAM_SPECS_BY_KEY:
+            value = PARAM_SPECS_BY_KEY[key].coerce(value)
         self.config[key] = value
 
     def add_result(self, key: str, result: Any) -> None:
