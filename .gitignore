@@ -2,3 +2,8 @@
 .codex
 data/
 results/
+old/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
