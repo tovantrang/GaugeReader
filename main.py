@@ -14,6 +14,7 @@ EXAMPLE_CONFIGS = {
 
 
 def main():
+    """Parse the example/image choice and launch the interactive application."""
     parser = argparse.ArgumentParser(description="Explore a gauge-reading CV pipeline.")
     parser.add_argument("--example", choices=EXAMPLE_CONFIGS, default="training")
     parser.add_argument(

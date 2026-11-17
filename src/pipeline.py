@@ -5,7 +5,10 @@ import numpy as np
 
 
 class Pipeline:
+    """Image-processing steps used to detect a gauge and estimate its reading."""
+
     def compute_rgb_image(self, image_path):
+        """Load an image as RGB; relative paths are resolved from the repository root."""
         image_path = Path(image_path)
         if not image_path.is_absolute():
             image_path = Path(__file__).resolve().parent.parent / image_path
@@ -16,12 +19,15 @@ class Pipeline:
         return image_rgb
 
     def compute_gray_image(self, image_rgb):
+        """Convert an RGB image to the grayscale image used by OpenCV detectors."""
         return cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY)
 
     def compute_canny_edges(self, image, thrd1, thrd2):
+        """Return Canny edges using the lower and upper hysteresis thresholds."""
         return cv2.Canny(image, thrd1, thrd2)
 
     def compute_hough_circles(self, image, param1, param2, min_radius, max_radius):
+        """Detect circles with Hough gradient; return OpenCV's array or ``None``."""
         circles = cv2.HoughCircles(
             image,
             cv2.HOUGH_GRADIENT,
@@ -35,6 +41,7 @@ class Pipeline:
         return circles
 
     def draw_circles(self, image, circles):
+        """Draw detected circles and centers on a copy of the RGB image."""
         img_rgb_copy = image.copy()
         if circles is not None:
             circles = np.uint16(np.around(circles))
@@ -46,6 +53,7 @@ class Pipeline:
         return img_rgb_copy
 
     def compute_circle_masked_image(self, image, circles):
+        """Keep pixels inside the first detected circle, or return the input unchanged."""
         if circles is None:
             return image
 
@@ -56,6 +64,7 @@ class Pipeline:
         return cv2.bitwise_and(image, mask)
 
     def compute_lines(self, image, thrd, min_line_length, max_line_gap):
+        """Detect line segments with probabilistic Hough transform parameters."""
         return cv2.HoughLinesP(
             image,
             1,
@@ -66,6 +75,7 @@ class Pipeline:
         )
 
     def draw_lines(self, image, lines):
+        """Draw detected segments on a copy of the RGB image."""
         img_rgb_copy = image.copy()
         if lines is not None:
             for line in lines:
@@ -74,6 +84,7 @@ class Pipeline:
         return img_rgb_copy
 
     def compute_circle_center(self, circles):
+        """Return the rounded center of the first detected circle, if any."""
         if circles is None:
             return None
 
@@ -82,6 +93,7 @@ class Pipeline:
         return int(x), int(y)
 
     def select_needle_lines(self, lines):
+        """Select the two longest detected segments as a simple needle-edge heuristic."""
         if lines is None or len(lines) < 2:
             return None
 
@@ -94,6 +106,7 @@ class Pipeline:
         return sorted_lines[:2]
 
     def compute_line_intersection(self, line_a, line_b):
+        """Return the infinite-line intersection, or ``None`` for parallel lines."""
         x1, y1, x2, y2 = (float(value) for value in line_a)
         x3, y3, x4, y4 = (float(value) for value in line_b)
 
@@ -108,6 +121,7 @@ class Pipeline:
         return float(px), float(py)
 
     def compute_angle(self, center, point):
+        """Return image angle in degrees: 0 right, 90 up, 180 left, -90 down."""
         center_x, center_y = center
         point_x, point_y = point
         dx = point_x - center_x
@@ -116,11 +130,13 @@ class Pipeline:
         return float(angle)
 
     def normalize_angle(self, angle):
+        """Wrap an angle in degrees into the interval [0, 360)."""
         return float(angle % 360)
 
     def compute_gauge_value(
         self, needle_angle, low_angle, high_angle, low_value, high_value, direction="cw"
     ):
+        """Linearly interpolate between endpoint angles, clamping outside the sweep."""
         needle_angle = self.normalize_angle(needle_angle)
         low_angle = self.normalize_angle(low_angle)
         high_angle = self.normalize_angle(high_angle)
@@ -136,6 +152,7 @@ class Pipeline:
         return float(low_value + ratio * (high_value - low_value))
 
     def compute_calibrated_value(self, analysis, config):
+        """Map a needle angle to a value using configured clicked endpoints, if set."""
         if analysis is None:
             return None
         low_point = config.get("gauge_low_point")
@@ -158,6 +175,7 @@ class Pipeline:
         return {"value": value, "low_angle": low_angle, "high_angle": high_angle}
 
     def compute_needle_analysis(self, circles, lines):
+        """Estimate center, tip, angle, and selected segments; return ``None`` on failure."""
         center = self.compute_circle_center(circles)
         selected_lines = self.select_needle_lines(lines)
         if center is None or selected_lines is None:
@@ -176,6 +194,7 @@ class Pipeline:
         }
 
     def draw_needle_analysis(self, image, analysis, calibration=None, config=None):
+        """Render the needle estimate and optional calibration marks on an image copy."""
         img_rgb_copy = image.copy()
         if config is not None:
             for name, color in (("low", (0, 180, 255)), ("high", (0, 255, 255))):

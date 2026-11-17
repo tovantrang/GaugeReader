@@ -6,7 +6,10 @@ from .params import PARAM_SPECS
 
 
 class Display:
+    """Matplotlib interface for browsing views, tuning parameters, and calibration."""
+
     def __init__(self, app):
+        """Build the interactive figure and start its event loop."""
         self.app = app
         self.sliders = {}
         self.textboxes = {}
@@ -15,6 +18,7 @@ class Display:
         self.display()
 
     def update_display(self):
+        """Refresh the displayed image and title from the app's current view."""
         image = self.app.image_to_display()
         title, img, cmap = image
         self.img_artist.set_data(img)
@@ -25,6 +29,7 @@ class Display:
         self.fig.canvas.draw_idle()
 
     def on_key(self, event):
+        """Handle view navigation, config shortcuts, and calibration key presses."""
         if event.key == "right":
             self.app.next_image()
             self.update_display()
@@ -59,6 +64,7 @@ class Display:
             self.update_display()
 
     def on_click(self, event):
+        """Save the pending calibration point when the user clicks the image axes."""
         if self.pending_calibration_point is None or event.inaxes != self.ax:
             return
         if event.xdata is None or event.ydata is None:
@@ -70,9 +76,11 @@ class Display:
         self.update_display()
 
     def quit(self):
+        """Close the current Matplotlib figure."""
         plt.close(self.fig)
 
     def ui_init(self):
+        """Create the image axes, tuning sliders, and calibration value fields."""
         image = self.app.image_to_display()
         self.fig, self.ax = plt.subplots()
         self.img_artist = self.ax.imshow(
@@ -105,16 +113,19 @@ class Display:
             self.textboxes[name] = TextBox(ax, label, initial=initial)
 
     def set_param(self, param_name, value):
+        """Apply a slider value through the app and refresh the displayed view."""
         self.app.set_param(param_name, value)
         self.update_display()
 
     def sync_sliders(self):
+        """Move sliders to loaded config values without triggering recomputation."""
         for param_name, slider in self.sliders.items():
             slider.eventson = False
             slider.set_val(self.app.state.config[param_name])
             slider.eventson = True
 
     def set_calibration_value(self, name, value):
+        """Parse a value field and update config, restoring its prior value if invalid."""
         try:
             self.app.set_param(name, float(value))
         except ValueError:
@@ -123,6 +134,7 @@ class Display:
         self.update_display()
 
     def display(self):
+        """Connect widget callbacks and show the interactive figure."""
         for param_name, slider in self.sliders.items():
             slider.on_changed(lambda val, name=param_name: self.set_param(name, val))
         for name, textbox in self.textboxes.items():

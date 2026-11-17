@@ -7,6 +7,8 @@ ParamType = Literal["int", "float"]
 
 @dataclass(frozen=True)
 class ParamSpec:
+    """Describe a numeric UI parameter and how slider values are displayed."""
+
     key: str
     label: str
     min_value: float
@@ -16,14 +18,17 @@ class ParamSpec:
 
     @property
     def valfmt(self) -> str:
+        """Return the Matplotlib format string appropriate for the parameter type."""
         return "%i" if self.value_type == "int" else "%.2f"
 
     def coerce(self, value: float) -> int | float:
+        """Convert a slider value to the declared integer or float type."""
         if self.value_type == "int":
             return int(round(value))
         return float(value)
 
 
+# Slider ranges and steps; Hough circle parameters are independent of Canny sliders.
 PARAM_SPECS = [
     ParamSpec("canny_thrd1", "Canny low", 0, 500, 1, "int"),
     ParamSpec("canny_thrd2", "Canny high", 0, 500, 1, "int"),
