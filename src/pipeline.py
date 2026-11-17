@@ -1,10 +1,15 @@
+from pathlib import Path
+
 import cv2
 import numpy as np
 
 
 class Pipeline:
     def compute_rgb_image(self, image_path):
-        image_bgr = cv2.imread(image_path)
+        image_path = Path(image_path)
+        if not image_path.is_absolute():
+            image_path = Path(__file__).resolve().parent.parent / image_path
+        image_bgr = cv2.imread(str(image_path))
         if image_bgr is None:
             raise FileNotFoundError(f"Could not load image: {image_path}")
         image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
@@ -110,6 +115,48 @@ class Pipeline:
         angle = np.degrees(np.arctan2(dy, dx))
         return float(angle)
 
+    def normalize_angle(self, angle):
+        return float(angle % 360)
+
+    def compute_gauge_value(
+        self, needle_angle, low_angle, high_angle, low_value, high_value, direction="cw"
+    ):
+        needle_angle = self.normalize_angle(needle_angle)
+        low_angle = self.normalize_angle(low_angle)
+        high_angle = self.normalize_angle(high_angle)
+        if direction == "cw":
+            sweep = (low_angle - high_angle) % 360
+            position = (low_angle - needle_angle) % 360
+        else:
+            sweep = (high_angle - low_angle) % 360
+            position = (needle_angle - low_angle) % 360
+        if sweep == 0:
+            return None
+        ratio = min(max(position / sweep, 0), 1)
+        return float(low_value + ratio * (high_value - low_value))
+
+    def compute_calibrated_value(self, analysis, config):
+        if analysis is None:
+            return None
+        low_point = config.get("gauge_low_point")
+        high_point = config.get("gauge_high_point")
+        if low_point is None or high_point is None:
+            return None
+        center = analysis["center"]
+        low_angle = self.compute_angle(center, low_point)
+        high_angle = self.compute_angle(center, high_point)
+        value = self.compute_gauge_value(
+            analysis["angle_deg"],
+            low_angle,
+            high_angle,
+            config.get("gauge_low_value", 0.0),
+            config.get("gauge_high_value", 100.0),
+            config.get("gauge_direction", "cw"),
+        )
+        if value is None:
+            return None
+        return {"value": value, "low_angle": low_angle, "high_angle": high_angle}
+
     def compute_needle_analysis(self, circles, lines):
         center = self.compute_circle_center(circles)
         selected_lines = self.select_needle_lines(lines)
@@ -128,8 +175,25 @@ class Pipeline:
             "lines": selected_lines,
         }
 
-    def draw_needle_analysis(self, image, analysis):
+    def draw_needle_analysis(self, image, analysis, calibration=None, config=None):
         img_rgb_copy = image.copy()
+        if config is not None:
+            for name, color in (("low", (0, 180, 255)), ("high", (0, 255, 255))):
+                point = config.get(f"gauge_{name}_point")
+                if point is not None:
+                    point = tuple(int(round(value)) for value in point)
+                    cv2.circle(img_rgb_copy, point, 5, color, -1)
+                    label = f"{name}={config.get(f'gauge_{name}_value', 0)}"
+                    cv2.putText(
+                        img_rgb_copy,
+                        label,
+                        (point[0] + 8, point[1] - 8),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        color,
+                        1,
+                        cv2.LINE_AA,
+                    )
         if analysis is None:
             return img_rgb_copy
 
@@ -144,7 +208,12 @@ class Pipeline:
         cv2.line(img_rgb_copy, center, tip, (255, 255, 0), 2)
         cv2.putText(
             img_rgb_copy,
-            f"{analysis['angle_deg']:.1f} deg",
+            f"{analysis['angle_deg']:.1f} deg"
+            + (
+                f" | value={calibration['value']:.2f}"
+                if calibration
+                else " | calibrate: press 1/2, click endpoints"
+            ),
             (20, 30),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.8,

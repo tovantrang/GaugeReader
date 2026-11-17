@@ -35,7 +35,11 @@ class App:
     def set_rgb(self):
         image_rgb = self.pipeline.compute_rgb_image(self.state.config["image_path"])
         self.state.add_result("image_rgb", image_rgb)
-        self.state.add_view("image_rgb", "RGB", self.state.results["image_rgb"])
+        self.state.add_view(
+            "image_rgb",
+            "Start here: source image (use ←/→ to explore)",
+            self.state.results["image_rgb"],
+        )
 
     def set_gray(self):
         image_gray = self.pipeline.compute_gray_image(self.state.results["image_rgb"])
@@ -110,9 +114,14 @@ class App:
             self.state.results["circles"],
             self.state.results["lines"],
         )
+        calibration = self.pipeline.compute_calibrated_value(
+            needle_analysis, self.state.config
+        )
         image_with_needle = self.pipeline.draw_needle_analysis(
             self.state.results["image_rgb"],
             needle_analysis,
+            calibration,
+            self.state.config,
         )
         if "needle_analysis" in self.state.results:
             self.state.update_result("needle_analysis", needle_analysis)
@@ -130,6 +139,18 @@ class App:
     def set_param(self, key: str, value):
         self.state.set_param(key, value)
         self.recompute_all()
+
+    def set_calibration_point(self, point_name, point):
+        self.state.set_param(
+            f"gauge_{point_name}_point", [float(point[0]), float(point[1])]
+        )
+        self.set_needle_analysis()
+
+    def toggle_gauge_direction(self):
+        direction = self.state.config.get("gauge_direction", "cw")
+        self.state.set_param("gauge_direction", "ccw" if direction == "cw" else "cw")
+        self.set_needle_analysis()
+        return self.state.config["gauge_direction"]
 
     def save_config(self, path=None):
         config_path = Path(path) if path is not None else self.config_path

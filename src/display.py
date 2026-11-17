@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
+from matplotlib.widgets import TextBox
 
 from .params import PARAM_SPECS
 
@@ -8,6 +9,8 @@ class Display:
     def __init__(self, app):
         self.app = app
         self.sliders = {}
+        self.textboxes = {}
+        self.pending_calibration_point = None
         self.ui_init()
         self.display()
 
@@ -45,6 +48,26 @@ class Display:
                 self.sync_sliders()
                 self.update_display()
                 print(f"Loaded config from {config_path}")
+        elif event.key == "1":
+            self.pending_calibration_point = "low"
+            print("Click the low-value point on the dial")
+        elif event.key == "2":
+            self.pending_calibration_point = "high"
+            print("Click the high-value point on the dial")
+        elif event.key == "d":
+            self.app.toggle_gauge_direction()
+            self.update_display()
+
+    def on_click(self, event):
+        if self.pending_calibration_point is None or event.inaxes != self.ax:
+            return
+        if event.xdata is None or event.ydata is None:
+            return
+        self.app.set_calibration_point(
+            self.pending_calibration_point, (event.xdata, event.ydata)
+        )
+        self.pending_calibration_point = None
+        self.update_display()
 
     def quit(self):
         plt.close(self.fig)
@@ -61,7 +84,7 @@ class Display:
         self.ax.set_title(image[0])
         self.ax.axis("off")
 
-        bottom = 0.08 + len(PARAM_SPECS) * 0.05
+        bottom = 0.18 + len(PARAM_SPECS) * 0.05
         plt.subplots_adjust(bottom=bottom)
         for index, spec in enumerate(PARAM_SPECS):
             y_pos = bottom - 0.06 - index * 0.05
@@ -75,6 +98,11 @@ class Display:
                 valfmt=spec.valfmt,
                 valstep=spec.step,
             )
+        for name, y_pos in (("gauge_low_value", 0.08), ("gauge_high_value", 0.02)):
+            ax = plt.axes((0.02, y_pos, 0.16, 0.04))
+            label = "Low" if name.endswith("low_value") else "High"
+            initial = str(self.app.state.config.get(name, 0.0))
+            self.textboxes[name] = TextBox(ax, label, initial=initial)
 
     def set_param(self, param_name, value):
         self.app.set_param(param_name, value)
@@ -86,11 +114,24 @@ class Display:
             slider.set_val(self.app.state.config[param_name])
             slider.eventson = True
 
+    def set_calibration_value(self, name, value):
+        try:
+            self.app.set_param(name, float(value))
+        except ValueError:
+            self.textboxes[name].set_val(str(self.app.state.config.get(name, 0.0)))
+            return
+        self.update_display()
+
     def display(self):
         for param_name, slider in self.sliders.items():
             slider.on_changed(lambda val, name=param_name: self.set_param(name, val))
+        for name, textbox in self.textboxes.items():
+            textbox.on_submit(
+                lambda value, key=name: self.set_calibration_value(key, value)
+            )
 
         self.fig.canvas.mpl_connect("key_press_event", self.on_key)
+        self.fig.canvas.mpl_connect("button_press_event", self.on_click)
         manager = plt.get_current_fig_manager()
         if hasattr(manager, "window") and hasattr(manager.window, "attributes"):
             manager.window.attributes("-fullscreen", True)

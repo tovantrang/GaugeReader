@@ -1,9 +1,15 @@
 .vscode/
 .codex
-data/
+data/private/
 results/
 old/
 config.json
+!data/
+!data/examples/
+!data/examples/**
+!configs/
+!configs/examples/
+!configs/examples/**
 __pycache__/
 *.pyc
 *.pyo
