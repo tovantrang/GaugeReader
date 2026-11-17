@@ -1,23 +1,26 @@
+from typing import Any
+
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 from matplotlib.widgets import TextBox
 
+from .app import App
 from .params import PARAM_SPECS
 
 
 class Display:
     """Matplotlib interface for browsing views, tuning parameters, and calibration."""
 
-    def __init__(self, app):
+    def __init__(self, app: App) -> None:
         """Build the interactive figure and start its event loop."""
         self.app = app
-        self.sliders = {}
-        self.textboxes = {}
-        self.pending_calibration_point = None
+        self.sliders: dict[str, Slider] = {}
+        self.textboxes: dict[str, TextBox] = {}
+        self.pending_calibration_point: str | None = None
         self.ui_init()
         self.display()
 
-    def update_display(self):
+    def update_display(self) -> None:
         """Refresh the displayed image and title from the app's current view."""
         image = self.app.image_to_display()
         title, img, cmap = image
@@ -28,7 +31,7 @@ class Display:
         self.ax.set_title(title)
         self.fig.canvas.draw_idle()
 
-    def on_key(self, event):
+    def on_key(self, event: Any) -> None:
         """Handle view navigation, config shortcuts, and calibration key presses."""
         if event.key == "right":
             self.app.next_image()
@@ -63,7 +66,7 @@ class Display:
             self.app.toggle_gauge_direction()
             self.update_display()
 
-    def on_click(self, event):
+    def on_click(self, event: Any) -> None:
         """Save the pending calibration point when the user clicks the image axes."""
         if self.pending_calibration_point is None or event.inaxes != self.ax:
             return
@@ -75,11 +78,11 @@ class Display:
         self.pending_calibration_point = None
         self.update_display()
 
-    def quit(self):
+    def quit(self) -> None:
         """Close the current Matplotlib figure."""
         plt.close(self.fig)
 
-    def ui_init(self):
+    def ui_init(self) -> None:
         """Create the image axes, tuning sliders, and calibration value fields."""
         image = self.app.image_to_display()
         self.fig, self.ax = plt.subplots()
@@ -112,19 +115,19 @@ class Display:
             initial = str(self.app.state.config.get(name, 0.0))
             self.textboxes[name] = TextBox(ax, label, initial=initial)
 
-    def set_param(self, param_name, value):
+    def set_param(self, param_name: str, value: float) -> None:
         """Apply a slider value through the app and refresh the displayed view."""
         self.app.set_param(param_name, value)
         self.update_display()
 
-    def sync_sliders(self):
+    def sync_sliders(self) -> None:
         """Move sliders to loaded config values without triggering recomputation."""
         for param_name, slider in self.sliders.items():
             slider.eventson = False
             slider.set_val(self.app.state.config[param_name])
             slider.eventson = True
 
-    def set_calibration_value(self, name, value):
+    def set_calibration_value(self, name: str, value: str) -> None:
         """Parse a value field and update config, restoring its prior value if invalid."""
         try:
             self.app.set_param(name, float(value))
@@ -133,7 +136,7 @@ class Display:
             return
         self.update_display()
 
-    def display(self):
+    def display(self) -> None:
         """Connect widget callbacks and show the interactive figure."""
         for param_name, slider in self.sliders.items():
             slider.on_changed(lambda val, name=param_name: self.set_param(name, val))

@@ -29,7 +29,7 @@ class ParamSpec:
 
 
 # Slider ranges and steps; Hough circle parameters are independent of Canny sliders.
-PARAM_SPECS = [
+PARAM_SPECS: list[ParamSpec] = [
     ParamSpec("canny_thrd1", "Canny low", 0, 500, 1, "int"),
     ParamSpec("canny_thrd2", "Canny high", 0, 500, 1, "int"),
     ParamSpec("hough_circle_param1", "Circle Canny", 0, 500, 1, "int"),
@@ -39,4 +39,4 @@ PARAM_SPECS = [
     ParamSpec("hough_line_threshold", "Line votes", 0, 200, 1, "int"),
 ]
 
-PARAM_SPECS_BY_KEY = {spec.key: spec for spec in PARAM_SPECS}
+PARAM_SPECS_BY_KEY: dict[str, ParamSpec] = {spec.key: spec for spec in PARAM_SPECS}

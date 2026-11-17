@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
+from typing import Any
 
+from .pipeline import ImageArray
 from .pipeline import Pipeline
 from .state import State
 
@@ -8,7 +10,9 @@ from .state import State
 class App:
     """Coordinate pipeline calculations, application state, and config persistence."""
 
-    def __init__(self, config, config_path="config.json"):
+    def __init__(
+        self, config: dict[str, Any], config_path: str | Path = "config.json"
+    ) -> None:
         """Create state and compute the initial set of result and debug views."""
         self.state = State(config)
         self.pipeline = Pipeline()
@@ -16,7 +20,7 @@ class App:
         self.current = 0
         self.reload_image()
 
-    def reload_image(self):
+    def reload_image(self) -> None:
         """Clear image-dependent data and rebuild all pipeline views from the config."""
         self.current = 0
         self.state.results.clear()
@@ -26,20 +30,20 @@ class App:
         self.set_gray()
         self.recompute_all()
 
-    def image_to_display(self):
+    def image_to_display(self) -> tuple[str, ImageArray, str | None]:
         """Return the title, image, and colormap for the currently selected view."""
         key = self.state.display_order[self.current]
         return self.state.debug_views[key]
 
-    def next_image(self):
+    def next_image(self) -> None:
         """Advance the selected debug view, wrapping at the end."""
         self.current = (self.current + 1) % len(self.state.display_order)
 
-    def prev_image(self):
+    def prev_image(self) -> None:
         """Move to the previous debug view, wrapping at the beginning."""
         self.current = (self.current - 1) % len(self.state.display_order)
 
-    def set_rgb(self):
+    def set_rgb(self) -> None:
         """Load the configured source image and register its initial view."""
         image_rgb = self.pipeline.compute_rgb_image(self.state.config["image_path"])
         self.state.add_result("image_rgb", image_rgb)
@@ -49,7 +53,7 @@ class App:
             self.state.results["image_rgb"],
         )
 
-    def set_gray(self):
+    def set_gray(self) -> None:
         """Compute and register the grayscale source image."""
         image_gray = self.pipeline.compute_gray_image(self.state.results["image_rgb"])
         self.state.add_result("image_gray", image_gray)
@@ -57,7 +61,7 @@ class App:
             "image_gray", "Grayscale", self.state.results["image_gray"], "gray"
         )
 
-    def set_canny(self):
+    def set_canny(self) -> None:
         """Compute Canny edges and create or refresh their debug view."""
         image_canny = self.pipeline.compute_canny_edges(
             self.state.results["image_gray"],
@@ -73,7 +77,7 @@ class App:
                 "edges", "Canny Edges", self.state.results["edges"], "gray"
             )
 
-    def set_circles(self):
+    def set_circles(self) -> None:
         """Detect circles and refresh the circle overlay."""
         circles = self.pipeline.compute_hough_circles(
             self.state.results["image_gray"],
@@ -92,7 +96,7 @@ class App:
             self.state.add_result("circles", circles)
             self.state.add_view("overlay_circles", "Hough Circles", image_with_circles)
 
-    def set_lines(self):
+    def set_lines(self) -> None:
         """Mask edges by the first circle, detect line segments, and refresh views."""
         masked_edges = self.pipeline.compute_circle_masked_image(
             self.state.results["edges"],
@@ -121,7 +125,7 @@ class App:
             self.state.add_result("lines", lines)
             self.state.add_view("overlay_lines", "Hough Lines", image_with_lines)
 
-    def set_needle_analysis(self):
+    def set_needle_analysis(self) -> None:
         """Estimate the needle angle/value and refresh the final overlay."""
         needle_analysis = self.pipeline.compute_needle_analysis(
             self.state.results["circles"],
@@ -143,33 +147,35 @@ class App:
             self.state.add_result("needle_analysis", needle_analysis)
             self.state.add_view("overlay_needle", "Needle Angle", image_with_needle)
 
-    def recompute_all(self):
+    def recompute_all(self) -> None:
         """Recompute parameter-dependent stages in pipeline order."""
         self.set_canny()
         self.set_circles()
         self.set_lines()
         self.set_needle_analysis()
 
-    def set_param(self, key: str, value):
+    def set_param(self, key: str, value: Any) -> None:
         """Update a config value and recompute all derived outputs."""
         self.state.set_param(key, value)
         self.recompute_all()
 
-    def set_calibration_point(self, point_name, point):
+    def set_calibration_point(
+        self, point_name: str, point: tuple[float, float]
+    ) -> None:
         """Store a clicked low/high endpoint in source-image pixel coordinates."""
         self.state.set_param(
             f"gauge_{point_name}_point", [float(point[0]), float(point[1])]
         )
         self.set_needle_analysis()
 
-    def toggle_gauge_direction(self):
+    def toggle_gauge_direction(self) -> str:
         """Switch the configured scale direction and return its new value."""
         direction = self.state.config.get("gauge_direction", "cw")
         self.state.set_param("gauge_direction", "ccw" if direction == "cw" else "cw")
         self.set_needle_analysis()
         return self.state.config["gauge_direction"]
 
-    def save_config(self, path=None):
+    def save_config(self, path: str | Path | None = None) -> Path:
         """Write the current config as JSON and return the destination path."""
         config_path = Path(path) if path is not None else self.config_path
         config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -178,7 +184,7 @@ class App:
             config_file.write("\n")
         return config_path
 
-    def load_config(self, path=None):
+    def load_config(self, path: str | Path | None = None) -> Path:
         """Load JSON settings; reload the image only when its path changed."""
         config_path = Path(path) if path is not None else self.config_path
         with config_path.open(encoding="utf-8") as config_file:
