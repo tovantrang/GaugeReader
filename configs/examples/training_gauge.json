@@ -4,12 +4,12 @@
   "canny_thrd2": 200,
   "hough_min_radius": 0,
   "hough_max_radius": 0,
-  "hough_circle_param1": 200,
-  "hough_circle_param2": 30,
+  "hough_circle_param1": 328,
+  "hough_circle_param2": 85,
   "hough_line_threshold": 50,
   "gauge_low_point": null,
   "gauge_high_point": null,
-  "gauge_low_value": 0.0,
-  "gauge_high_value": 100.0,
+  "gauge_low_value": -1.0,
+  "gauge_high_value": 5.0,
   "gauge_direction": "cw"
 }
